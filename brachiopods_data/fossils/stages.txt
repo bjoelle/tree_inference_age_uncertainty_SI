@@ -1,0 +1,8 @@
+Stage	MA_max	MA_min
+Lochkovian	419.2	410.8
+Pragian	410.8	407.6
+Emsian	407.6	393.3
+Eifelian	393.3	387.7
+Givetian	387.7	382.7
+Frasnian	382.7	372.2
+Famennian	372.2	358.9
