@@ -96,7 +96,7 @@ plot_tree_distances_sampling = function(outfolder, highfs, charlengths = c("30",
 }
 
 plot_comparison_priors = function(outfolder, priors = c("nopriors", "clockprior","correctclockprior"),
-                                  names = c("divtime", "diversificationRateFBD","turnoverFBD", "clockRate"),
+                                  names = c("extmrca.divtime", "diversificationRateFBD","turnoverFBD", "clockRate"),
                                   plotfolder = NULL) {
   library(ggplot2)
   library(gridExtra)
@@ -106,7 +106,6 @@ plot_comparison_priors = function(outfolder, priors = c("nopriors", "clockprior"
   cats = c("correct_ages", "median_ages", "interval_ages", "random_ages", "norm_intvl_ages")
   
   for(name in names) {
-    if(name == "divtime") name = "extmrca.divtime"
     assign(paste0(name, "_rel_error"), NULL)
     assign(paste0(name, "_coverage"), NULL)
   }
@@ -118,8 +117,8 @@ plot_comparison_priors = function(outfolder, priors = c("nopriors", "clockprior"
       load(file)
       fullfile = get(tools::file_path_sans_ext(basename(file)))
       for(name in names) {
-        full = fullfile[[name]]
-        if(name == "divtime") name = "extmrca.divtime"
+        if(name == "extmrca.divtime") full = fullfile$divtime
+        else full = fullfile[[name]]
         
         tmp_df = NULL
         for(i in 1:length(cats)) {
@@ -130,8 +129,18 @@ plot_comparison_priors = function(outfolder, priors = c("nopriors", "clockprior"
         }
         assign(paste0(name, "_rel_error"), rbind(get(paste0(name, "_rel_error")), tmp_df))
         
-        tmp_df = data.frame(Age = ages, Coverage = unlist(lapply(cats, function(x) {mean(full[[paste0(x,".",name,".coverage")]], na.rm = T)})),
-                            Prior = rep(prior, length(cats)), Type = rep(type, length(cats)))
+        if(name == "extmrca.divtime") {
+          tmp_df = NULL
+          for(i in 1:length(cats)) {
+            vect = full[[paste0(cats[i],".",name,".coverage")]]
+            tmp_df = rbind(tmp_df, data.frame(Age = ages[i], Coverage = mean(vect, na.rm = T),
+                                              sd_Coverage = sd(vect, na.rm = T), Prior = prior, Type = type))
+          }
+        }
+        else {
+          tmp_df = data.frame(Age = ages, Coverage = unlist(lapply(cats, function(x) {mean(full[[paste0(x,".",name,".coverage")]], na.rm = T)})),
+                              Prior = rep(prior, length(cats)), Type = rep(type, length(cats)))
+        }
         assign(paste0(name, "_coverage"), rbind(get(paste0(name, "_coverage")), tmp_df))
       }
     }
@@ -140,7 +149,6 @@ plot_comparison_priors = function(outfolder, priors = c("nopriors", "clockprior"
   cbPalette <- c("#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
   
   for(name in names) {
-    if(name == "divtime") name = "extmrca.divtime"
     
     tmp_df = get(paste0(name, "_rel_error"))
     tmp_df$lower = sapply(tmp_df$mean_Relative_error-tmp_df$sd_Relative_error, function(t) max(0,t))
@@ -161,7 +169,7 @@ plot_comparison_priors = function(outfolder, priors = c("nopriors", "clockprior"
                            labels = c("High sampling and character length 300", "Low sampling and character length 30"))
       
       if(is.null(plotfolder)) show(p_rel_error)
-      else ggsave(paste0(plotfolder, "/", if(name == "extmrca.divtime") "divtime" else name, "_rel_error.pdf"),width = 5,height = 7.25)
+      else ggsave(paste0(plotfolder, "/", if(name == "extmrca.divtime") "divtime" else name, "_rel_error.pdf"),width = 5,height = 7.5)
     } else {
       p_rel_error = p_rel_error +
         theme(axis.text.x = element_text(angle = 45, vjust =1, hjust = 1), text = element_text(size = 15), legend.position = "none") +
@@ -173,9 +181,17 @@ plot_comparison_priors = function(outfolder, priors = c("nopriors", "clockprior"
     
     p_coverage = ggplot(get(paste0(name, "_coverage")), mapping = aes(x=Age, y=Coverage, colour=factor(Prior), shape = factor(Type))) +
       xlim("*Interval ages", "*Symmetric ages", "Correct age", "Median age", "Random age") +
-      ylim(0,1) + xlab(plotnames[name]) + ylab("Coverage") + geom_point(size = 3, position = position_dodge(width=0.75)) +
+      ylim(0,1) + xlab(plotnames[name]) + ylab("Coverage") + 
       theme(axis.text.x = element_text(angle = 45, vjust =1, hjust = 1), text = element_text(size = 15), legend.position = "none") +
       scale_color_manual(values=cbPalette) + scale_shape_manual(values = c(16, 17))
+    if(name == "extmrca.divtime") {
+      p_coverage = p_coverage + geom_pointrange(aes(ymin = sapply(Coverage - sd_Coverage, function(t) max(t,0)), 
+                                                    ymax = sapply(Coverage + sd_Coverage, function(t) min(t,1))), 
+                                                size = 0.75, position = position_dodge(width=0.75))
+    }
+    else {
+      p_coverage = p_coverage + geom_point(size = 3, position = position_dodge(width=0.75))
+    }
     
     if(is.null(plotfolder)) show(p_coverage)
     else ggsave(paste0(plotfolder, "/", if(name == "extmrca.divtime") "divtime" else name, "_coverage.pdf"),width = 5,height = 5)
@@ -183,7 +199,7 @@ plot_comparison_priors = function(outfolder, priors = c("nopriors", "clockprior"
 }
 
 plot_comparison_sampling = function(outfolder, charlengths = c("30", "300", "3000"),
-                                    names = c("divtime", "diversificationRateFBD","turnoverFBD", "clockRate"),
+                                    names = c("extmrca.divtime", "diversificationRateFBD","turnoverFBD", "clockRate"),
                                     plotfolder = NULL) {
   library(ggplot2)
   plotnames = c("Divergence time", "Diversification rate","Turnover", "Clock rate")
@@ -193,7 +209,6 @@ plot_comparison_sampling = function(outfolder, charlengths = c("30", "300", "300
   ages = c("Correct age", "Median age", "*Interval ages", "Random age", "*Symmetric ages")
   
   for(name in names) {
-    if(name == "divtime") name = "extmrca.divtime"
     assign(paste0(name, "_rel_error"), NULL)
     assign(paste0(name, "_coverage"), NULL)
   }
@@ -204,8 +219,8 @@ plot_comparison_sampling = function(outfolder, charlengths = c("30", "300", "300
       fullfile = get(tools::file_path_sans_ext(basename(file)))
       
       for(name in names) {
-        full = fullfile[[name]]
-        if(name == "divtime") name = "extmrca.divtime"
+        if(name == "extmrca.divtime") full = fullfile$divtime
+        else full = fullfile[[name]]
         
         tmp_df = NULL
         for(i in 1:length(cats)) {
@@ -215,8 +230,19 @@ plot_comparison_sampling = function(outfolder, charlengths = c("30", "300", "300
         }
         assign(paste0(name, "_rel_error"), rbind(get(paste0(name, "_rel_error")), tmp_df))
         
-        tmp_df = data.frame(Age = ages, Coverage = unlist(lapply(cats, function(x) {mean(full[[paste0(x,".",name,".coverage")]], na.rm = T)})),
-                            Char_length = rep(cl, length(cats)), Type = rep(type, length(cats)))
+        if(name == "extmrca.divtime") {
+          tmp_df = NULL
+          for(i in 1:length(cats)) {
+            vect = full[[paste0(cats[i],".",name,".coverage")]]
+            tmp_df = rbind(tmp_df, data.frame(Age = ages[i], Coverage = mean(vect, na.rm = T), sd_Coverage = sd(vect, na.rm = T), 
+                                              Char_length = rep(cl, length(cats)), Type = rep(type, length(cats))))
+          }
+        }
+        else {
+          tmp_df = data.frame(Age = ages, Coverage = unlist(lapply(cats, function(x) {mean(full[[paste0(x,".",name,".coverage")]], na.rm = T)})),
+                              Char_length = rep(cl, length(cats)), Type = rep(type, length(cats)))
+        }
+        
         assign(paste0(name, "_coverage"), rbind(get(paste0(name, "_coverage")), tmp_df))
       }
     }
@@ -225,11 +251,10 @@ plot_comparison_sampling = function(outfolder, charlengths = c("30", "300", "300
   cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
   
   for(name in names) {
-    if(name == "divtime") name = "extmrca.divtime"
-    
+
     tmp_df = get(paste0(name, "_rel_error"))
     tmp_df$lower = sapply(tmp_df$mean_Relative_error-tmp_df$sd_Relative_error, function(t) max(0,t))
-                 
+    
     p_rel_error <- ggplot(tmp_df, mapping = aes(x=Age, y=mean_Relative_error, colour=factor(Char_length), shape = factor(Type))) +
       geom_pointrange(aes(ymin = lower, ymax=mean_Relative_error+sd_Relative_error), 
                       size = 0.75, position = position_dodge(width=0.75)) +
@@ -243,7 +268,7 @@ plot_comparison_sampling = function(outfolder, charlengths = c("30", "300", "300
         scale_shape_manual(values = c(16, 17), name = "Fossil sampling", breaks = c("highfs", "lowfs"), 
                            labels = c("High sampling", "Low sampling"))
       if(is.null(plotfolder)) show(p_rel_error)
-      else ggsave(paste0(plotfolder, "/", if(name == "extmrca.divtime") "divtime" else name, "_rel_error.pdf"), width = 5,height = 7.25)
+      else ggsave(paste0(plotfolder, "/", if(name == "extmrca.divtime") "divtime" else name, "_rel_error.pdf"), width = 5,height = 7.5)
     } else {
       p_rel_error = p_rel_error +
         theme(axis.text.x = element_text(angle = 45, vjust =1, hjust = 1), text = element_text(size = 15), legend.position = "none") +
@@ -255,9 +280,18 @@ plot_comparison_sampling = function(outfolder, charlengths = c("30", "300", "300
     
     p_coverage <- ggplot(get(paste0(name, "_coverage")), mapping = aes(x=Age, y=Coverage, colour=factor(Char_length), shape=factor(Type))) +
       xlim("*Interval ages", "*Symmetric ages", "Correct age", "Median age", "Random age") +
-      ylim(0,1) + xlab(plotnames[name]) + ylab("Coverage") + geom_point(size = 3, position = position_dodge(width=0.75)) +
+      ylim(0,1) + xlab(plotnames[name]) + ylab("Coverage") +
       theme(axis.text.x = element_text(angle = 45, vjust =1, hjust = 1), text = element_text(size = 15), legend.position = "none") +
       scale_colour_manual(values=cbPalette) + scale_shape_manual(values = c(16, 17))
+    
+    if(name == "extmrca.divtime") {
+      p_coverage = p_coverage + geom_pointrange(aes(ymin = sapply(Coverage - sd_Coverage, function(t) max(t,0)), 
+                                                    ymax = sapply(Coverage + sd_Coverage, function(t) min(t,1))), 
+                                                size = 0.75, position = position_dodge(width=0.75))
+    }
+    else {
+      p_coverage = p_coverage + geom_point(size = 3, position = position_dodge(width=0.75))
+    }
     
     if(is.null(plotfolder)) show(p_coverage)
     else ggsave(paste0(plotfolder, "/", if(name == "extmrca.divtime") "divtime" else name, "_coverage.pdf"),width = 5,height = 5)
