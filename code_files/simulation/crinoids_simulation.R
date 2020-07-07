@@ -32,7 +32,6 @@ out_dir = paste0("../", if(highfs) "highfs_" else "lowfs_", "charlength", charac
 save.file = paste0("../crinoid_", if(highfs) "highfs_" else "lowfs_", "charlength", character.length, "/", name, "_seed459.RData")
 
 pbdbf = "../datasets/pbdb_crinoids.RData"
-
 mean_pbdb_span = 12
 
 #source("auxf.R")
@@ -186,6 +185,9 @@ for (i in 1:ntrees) {
   xml_find_first(template,"run/logger") %>% xml_set_attr("fileName", paste0("FBD_norm_intvl_ages_",i,".log"))
   xml_find_first(template, "run/logger[@mode='tree']") %>% xml_set_attr("fileName", paste0("FBD_norm_intvl_ages_",i,".trees"))
   write_xml(template,file.path(out_dir,paste0("FBD_norm_intvl_ages_",i,".xml")))
+  
+  # write nexus files for unconstrained analysis
+  ape::write.nexus.data(strsplit(sequences[[i]], split = ""), file = paste0(out_dir, "/unconstrained/rep_", i, ".nex"), format = "standard", gap = "-", missing = "?")  
 }
 
 save(trees, fossils, samp_trees, offsets, sequences, file = save.file)

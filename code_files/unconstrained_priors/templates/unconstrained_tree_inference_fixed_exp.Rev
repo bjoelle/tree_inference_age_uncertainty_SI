@@ -1,0 +1,92 @@
+# Template for unconstrained tree inference using RevBayes: https://revbayes.github.io
+# for more information about these models see https://revbayes.github.io/tutorials/morph/morph_dec2018
+# Exponential with fixed mean
+
+#######################
+# Reading in the Data #
+#######################
+# Import the morphological character matrix #
+morpho <- readDiscreteCharacterData("data/bears.nex")
+
+# helpers #
+mvi = 1
+mni = 1
+taxa <- morpho.names()
+num_taxa <- taxa.size()
+num_branches <- 2 * num_taxa - 3 # number of branches in an unrooted tree
+
+##############
+# Tree model #
+##############
+
+# Set up branch length hyperprior with a move #
+#br_len_lambda ~ dnExp(10)
+#moves[mvi++] = mvScale(br_len_lambda, weight=2)
+
+# Fix mean of exponential distribution #
+br_len_lambda <- 10
+
+# Define the tree parameter, assuming a uniform prior on topology #
+phylogeny ~ dnUniformTopologyBranchLength(taxa, branchLengthDistribution=dnExponential(br_len_lambda))
+
+# compute the tree length from the phylogeny #
+tree_length := phylogeny.treeLength()
+
+moves[mvi++] = mvNNI(phylogeny, weight=num_branches/2.0)
+moves[mvi++] = mvSPR(phylogeny, weight=num_branches/10.0)
+moves[mvi++] = mvBranchLengthScale(phylogeny, weight=num_branches)
+
+###########################################
+# Binary morphological substitution model #
+###########################################
+
+# Create the Q matrix. These data are binary, so we initialize the Jukes-Cantor matrix with
+# two states #
+Q_morpho <- fnJC(2)
+
+# Set up gamma-distributed rate variation #
+#alpha_morpho ~ dnUniform( 0.0, 1E6 )
+# Moves on the parameters to the gamma distribution
+#moves[mvi++] = mvScale(alpha_morpho,lambda=1, weight=2.0)
+
+#alpha_morpho <- 1
+#rates_morpho := fnDiscretizeGamma( alpha_morpho, alpha_morpho, 4 )
+
+# Combine all of our elements into a CTMC, assumming we *have* observed invariant sites, 
+# we do not speciafy coding = "variable" #
+phyMorpho ~ dnPhyloCTMC(tree=phylogeny, Q=Q_morpho, type="Standard")
+phyMorpho.clamp(morpho)
+
+########
+# MCMC #
+########
+
+# initialize the model object #
+mymodel = model(phylogeny)
+# Create a vector of monitors #
+# 1. for the full model #
+monitors[mni++] = mnModel(filename="output/mk.log", printgen=200) # printgen = number of samples
+# 2. the tree #
+monitors[mni++] = mnFile(filename="output/mk.trees", printgen=200, phylogeny)
+# 3. and a few select parameters to be printed to the screen #
+monitors[mni++] = mnScreen(printgen=2000)
+
+# Initialize the MCMC object #
+mymcmc = mcmc(mymodel, monitors, moves, nruns=4, combine="mixed")
+
+# Run the MCMC #
+mymcmc.run(generations=200000, tuningInterval=1000) # generations = chain length, tuningInterval = calibration time
+
+# check the performance of the MCMC/moves #
+mymcmc.operatorSummary()
+
+# Read in the tree trace and construct the consensus tree tree #
+# trace = readTreeTrace("output/mk.trees", treetype="non-clock")
+# trace.setBurnin(0.25)
+
+# Summarize tree trace and the consensus tree to file #
+# mapTree(trace, file="output/mk.map.tre")
+# consensusTree(trace, file="output/mk.majrule.tre")
+
+# Quit RevBayes #
+q()
