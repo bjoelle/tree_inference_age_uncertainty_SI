@@ -92,7 +92,7 @@ for (i in 1:ntrees) {
   offsets[[i]] = list(correct_ages = min(fossils[[i]]$h)) 
   
   # simulating sequences on the trees
-  sequences[[i]] = sim_character_sequences_varying_rate(samp_trees[[i]], clock_rate, character.length)
+  sequences[[i]] = sim_character_sequences(samp_trees[[i]], character.length, prop_binary, rate = clock_rate)
   
   # create xml for certain and uncertain runs
   template = read_xml(xml_template)

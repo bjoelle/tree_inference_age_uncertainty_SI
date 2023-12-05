@@ -98,29 +98,3 @@ sim_character_sequences = function(tree, nchars, prop_binary, rate = NULL, alpha
   seq = apply(seq, 1, function(x) paste0(x - 1, collapse = ""))
   seq
 }
-
-### vary rates among branches by scaling branch length with lognormal simulated rates 
-sim_character_sequences_varying_rate = function(tree, mean.rate, nchars) {
-  ntips = length(tree$tip.label)
-  internal_branches = (ntips*2) - 2
-  
-  # simulate variable rates under a log normal distribution
-  lstdev = 0.1
-  simulated.rates = rlnorm(internal_branches, log(mean.rate), lstdev)
-  
-  # generate new branch lengths
-  new.blens = tree$edge.length * simulated.rates 
-  
-  # assign them to the tree
-  new.tree = tree
-  new.tree$edge.length = new.blens
-  
-  rates = rep(mean.rate,nchars)
-  mats = lapply(rates, function(x) {
-    if(runif(1) < prop_binary) rbind(c(-x, x), c(x, -x)) #binary character
-    else rbind(c(-x, x/2, x/2), c(x/2, -x, x/2), c(x/2, x/2, -x)) #trinary character
-  })
-  seq = geiger::sim.char(new.tree, mats, model = "discrete")[,,1]
-  seq = apply(seq, 1, function(x) paste0(x - 1, collapse = ""))
-  seq   
-}
